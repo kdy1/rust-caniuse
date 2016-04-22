@@ -1,0 +1,21 @@
+[package]
+name = "caniuse"
+description = "caniuse-db for rust."
+version = "1.0.30000459"
+authors = ["kdy1997 <kdy1997.dev@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+serde = "*"
+serde_macros = "*"
+phf = "*"
+phf_macros = "*"
+
+[build-dependencies]
+phf_codegen = "*"
+serde = "*"
+serde_json = "*"
+serde_macros = "*"
+phf = "*"
+phf_macros = "*"
+hyper = "*"
