@@ -1,10 +1,17 @@
+//! This crate contains types from caniuse-db,
+//! and does not contain any feature realted data.
+//!
 //! enums are predeclared to verify them on compile time.
+
+extern crate phf;
+#[cfg(feature = "serde")]
+extern crate serde;
 
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
-use serde::{self, Deserialize, Deserializer};
-use phf::{self};
+#[cfg(feature = "serde")]
+use self::serde::{Deserialize, Deserializer};
 
 ///
 /// multiple idents are required because concat_idents!() does not work.
@@ -51,7 +58,7 @@ macro_rules! caniuse_enum {
             }
         }
 
-
+        #[cfg(feature = "serde")]
         impl Deserialize for $name {
             fn deserialize<D: Deserializer>(d: &mut D)
              -> Result<Self, D::Error> {
@@ -59,14 +66,16 @@ macro_rules! caniuse_enum {
             }
         }
 
+        #[cfg(feature = "serde")]
         struct $visitor;
 
+        #[cfg(feature = "serde")]
         impl serde::de::Visitor for $visitor {
             type Value = $name;
 
             #[inline]
-            fn visit_str<E>(&mut self, v: &str)
-            -> Result<Self::Value, E> where E: serde::de::Error {
+            fn visit_str<E>(&mut self, v: &str) -> Result<Self::Value, E>
+             where E: serde::de::Error {
                 match $map.get(v) {
                     Some(o) => { Ok(*o) },
                     None => {
