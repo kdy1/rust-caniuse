@@ -75,7 +75,7 @@ pub const FEATURE_{var}: Feature = \
         // print id:Feature map
         f.write_all(b"\n\n").unwrap();
         write!(&mut f,
-               "static FEATURES: phf::Map<&'static str, Feature> = ")
+               "pub static FEATURES: phf::Map<&'static str, Feature> = ")
             .unwrap();
         let mut features = phf_codegen::Map::new();
         for (key, _) in &d.data {
