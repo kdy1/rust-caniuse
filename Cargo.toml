@@ -4,6 +4,7 @@ description = "caniuse-db for rust."
 version = "1.0.30000464"
 authors = ["kdy1997 <kdy1997.dev@gmail.com>"]
 license = "MIT/Apache-2.0"
+documentation = "https://kdy1997.github.io/rustdoc/caniuse/caniuse"
 homepage = "https://github.com/kdy1997/rust-caniuse"
 repository = "https://github.com/kdy1997/rust-caniuse"
 build = "build.rs"
