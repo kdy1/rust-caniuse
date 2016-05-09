@@ -10,6 +10,6 @@ script:
 
 after_success: |
     [ $TRAVIS_PULL_REQUEST = false ] &&
-    [ $TRAVIS_RUST_VERSION = stable ] &&
+    [ $TRAVIS_RUST_VERSION = nightly ] &&
     cargo doc --no-deps &&
     ./.travis/docs.sh
