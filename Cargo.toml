@@ -9,19 +9,15 @@ homepage = "https://github.com/kdy1997/rust-caniuse"
 repository = "https://github.com/kdy1997/rust-caniuse"
 build = "build.rs"
 
-
-[features]
-default = ["data","serde-serialize"]
-data = []
-serde-serialize = ["serde","serde_macros"]
-
 [dependencies]
 phf = "^0.7"
 phf_macros = "^0.7"
-serde = { version = "^0.7", optional = true }
-serde_macros = { version = "^0.7", optional = true }
+serde = "^0.7"
+serde_macros = "^0.7"
+
 
 [build-dependencies]
+aster = "^0.16"
 phf = "^0.7"
 phf_codegen = "^0.7"
 phf_macros = "^0.7"

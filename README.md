@@ -4,6 +4,7 @@
 [caniuse-db](https://github.com/Fyrd/caniuse) for rust.
 caniuse-db is licensed CC BY 4.0 license (http://creativecommons.org/licenses/by/4.0/).
 
+Note: this is a study project.
 
 ## License
 

@@ -1,17 +1,8 @@
-//! This crate contains types from caniuse-db,
-//! and does not contain any feature realted data.
-//!
-//! enums are predeclared to verify them on compile time.
-
-extern crate phf;
-#[cfg(feature = "serde")]
-extern crate serde;
-
-use std::fmt::{self, Display, Formatter};
+use phf;
+use std::fmt::{self, Debug, Display, Formatter};
+use std::hash::Hasher;
 use std::str::FromStr;
-
-#[cfg(feature = "serde")]
-use self::serde::{Deserialize, Deserializer};
+use serde::{self, Deserialize, Deserializer};
 
 ///
 /// multiple idents are required because concat_idents!() does not work.
@@ -22,9 +13,8 @@ macro_rules! caniuse_enum {
             $exp:expr => $v:ident,
         )+
     }) => {
-        #[repr(C)]
-        #[repr(u16)]
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[repr(u8)]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash, )]
         pub enum $name {
             $(
                 #[doc = "\""]
@@ -38,9 +28,29 @@ macro_rules! caniuse_enum {
             #[inline]
             fn fmt(&self, f: &mut Formatter) -> fmt::Result {
                 match *self {
-                    $($name::$v => f.write_str(stringify!($v)),)+
+                    $($name::$v => write!(f, "{}", stringify!($v)) ,)+
                 }
             }
+        }
+
+
+        /// This is required for phf_codegen.
+        /// (is wrapper type better?)
+		impl Debug for $name {
+			#[inline]
+			fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+				 match *self {
+                    $($name::$v => write!(f, "{}::{}", stringify!($name), stringify!($v)) ,)+
+                }
+			}
+		}
+
+        impl $name {
+        pub fn orig(&self) -> &'static str {
+			match *self {
+                    $($name::$v => $exp ,)+
+                }
+        }
         }
 
         pub static $map: phf::Map<&'static str, $name> = phf_map! {
@@ -58,7 +68,6 @@ macro_rules! caniuse_enum {
             }
         }
 
-        #[cfg(feature = "serde")]
         impl Deserialize for $name {
             fn deserialize<D: Deserializer>(d: &mut D)
              -> Result<Self, D::Error> {
@@ -66,10 +75,8 @@ macro_rules! caniuse_enum {
             }
         }
 
-        #[cfg(feature = "serde")]
         struct $visitor;
 
-        #[cfg(feature = "serde")]
         impl serde::de::Visitor for $visitor {
             type Value = $name;
 
@@ -86,6 +93,14 @@ macro_rules! caniuse_enum {
                 }
             }
         }
+
+		impl phf::PhfHash for $name {
+
+			#[inline]
+			fn phf_hash<H: Hasher>(&self, state: &mut H) {
+				state.write_u8(*self as u8);
+			}
+        }
     }
 }
 
@@ -98,7 +113,7 @@ caniuse_enum!(Browser, BROWSERS, BrowserVisitor, {
     "chrome" => Chrome,
     "safari" => Safari,
     "opera" => Opera,
-    "ios_saf" => iOSSafari,
+    "ios_saf" => IOSSafari,
     "op_mini" => OperaMini,
     "android" => AndroidBrowser,
     "bb" => BlackberryBrowser,
@@ -126,3 +141,23 @@ caniuse_enum!(Prefix, PREFIXES, PrefixVisitor, {
     "webkit" => Webkit,
     "o" => Opera,
 });
+
+
+///
+/// https://github.com/Fyrd/caniuse/blob/master/CONTRIBUTING.md#supported-changes
+pub enum Support {
+    /// y - (Y)es, supported by default
+    Supported,
+    /// a - (A)lmost supported (aka Partial support)
+    Partial,
+    /// n - (N)o support, or disabled by default
+    No,
+    /// p - No support, but has (P)olyfill
+    Polyfill,
+    /// u - Support (u)nknown
+    Unknown,
+    /// x - Requires prefi(x) to work
+    PrefixRequired,
+    /// d - (D)isabled by default (need to enable flag or something)
+    Disabled,
+}
