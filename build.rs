@@ -1,7 +1,7 @@
 #![feature(plugin, custom_derive)]
 #![plugin(phf_macros, serde_macros)]
 
-extern crate aster;
+extern crate inflect;
 extern crate hyper;
 extern crate phf;
 extern crate phf_codegen;
@@ -16,76 +16,157 @@ use std::path::Path;
 
 use hyper::Client;
 use hyper::header::Connection;
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 use shared::*;
 
 
-#[path = "src/shared.rs"]
+#[path = "src/shared/mod.rs"]
 mod shared;
 
 
 fn main() {
     let client = Client::new();
     let head = get_git_head(&client);
-    let data = get_data(&client, &head);
-    print_data(data);
-}
-
-fn print_data(d: Data) {
-    use std::fmt::Write;
+    let data = Data::get(&client, &head).patch();
 
     let out_dir = env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("datas.rs");
-    let mut f = File::create(&dest_path).unwrap();
-    let mut features = phf_codegen::Map::<&str>::new();
+    DataPrinter {
+        data: data,
+        w: File::create(&dest_path).unwrap(),
+    }
+    .print();
+}
+
+struct DataPrinter<W: Write> {
+    data: Data,
+    w: W,
+}
+
+impl<W> DataPrinter<W>
+    where W: Write
+{
+    fn print(&mut self) {
+        // start: pub enum Fature
+        self.p(b"#[derive(Debug,Copy,Clone)]
+    pub enum Feature {\n");
+        self.print_each(|f| {
+            format!("/// http://caniuse.com/#feat={id}
+/// {desc}
+{var},\n",
+                    id = f.id,
+                    var = f.var_name,
+                    desc = &f.description)
+        });
+        self.p(b"}\n");
+        // end: pub enum Feature
 
 
-    // print `pub const FEATURE_{var}`
-    for (key, feat) in &d.data {
-        let var_name = key.replace("-", "_").to_uppercase();
-        let mut stats = phf_codegen::Map::new();
-        for (br, bs) in &feat.stats {
-            // Version:support map
-            let mut vmap = phf_codegen::Map::<&str>::new();
+        self.print_feature_impl();
 
-            for (ver, support) in bs {
-                vmap.entry(ver, &format!("\"{}\"", support));
+        // // print id:Feature map
+        self.p(b"\n\npub static FEATURES: phf::Map<&'static str, Feature> = ");
+        {
+            let mut features = phf_codegen::Map::<&str>::new();
+            for (_, f) in &self.data.data {
+                features.entry(&f.id, &format!("Feature::{}", f.var_name));
             }
-
-            stats.entry(*br, &build_phf_map(vmap));
+            features.build(&mut self.w).unwrap();
         }
-
-
-        write!(f,
-               r#"
-///
-/// http://caniuse.com/#feat={id}
-///
-///
-pub const FEATURE_{var}: Feature = Feature{{
-                id: "{id}",
-    title: "{title}",
-    parent_id: "{parent}",
-    status: {status:?},
-	stats: {stats},
-}};
-"#,
-               var = var_name,
-               id = key,
-               title = feat.title,
-               parent = feat.parent,
-               status = feat.status,
-               stats = &build_phf_map(stats))
-            .unwrap();
-        features.entry(key, &format!("FEATURE_{}", var_name));
+        self.p(b";\n\n");
     }
 
+    fn print_feature_impl(&mut self) {
+        self.p(b"impl Feature {");
 
-    // print id:Feature map
-    f.write_all(b"\n\npub static FEATURES: phf::Map<&'static str, Feature> = ").unwrap();
-    features.build(&mut f).unwrap();
-    f.write_all(b";\n\n").unwrap();
+        // start: fn id()
+        self.p(b"\n/// ID of the feature.
+pub fn id(self) -> &'static str {");
+        self.print_match(|f| format!("\"{}\"", f.id));
+        self.p(b"}\n");
+
+        // start: fn parent_id()
+        self.p(b"\n/// ID of the parent feature, or empty string.
+pub fn parent_id(self) -> &'static str {");
+        self.print_match(|f| format!("\"{}\"", f.id));
+        self.p(b"}\n");
+
+        // start: fn status()
+        self.p(b"\n/// Specification status.
+pub fn status(self) -> Status {");
+        self.print_match(|f| format!("Status::{}", f.status));
+        self.p(b"}\n");
+
+        // start: fn title()
+        self.p(b"\n
+pub fn title(self) -> &'static str {");
+        self.print_match(|f| format!("\"{}\"", f.title));
+        self.p(b"}\n");
+
+        // start: fn stats()
+        self.p(b"\n
+pub fn stats(self) -> &'static Stats {");
+        self.print_match(|f| format!("&STATS_{}", f.const_name));
+        self.p(b"}");
+
+        self.p(b"\n\n}");
+
+        self.print_each(|f| {
+            use std::fmt::Write;
+
+            let mut stats = String::new();
+            stats.push('[');
+
+            for (browser, stat) in &f.stats {
+                let mut stat_map = phf_codegen::Map::<&str>::new();
+                // stat: map[version]support
+                for (ver, support) in stat {
+                    stat_map.entry(&ver, &format!("Support::{:?}", support));
+                }
+                write!(stats,
+                       "(Browser::{}, {}),",
+                       browser,
+                       &Self::build_map(stat_map))
+                    .unwrap();
+            }
+            stats.push(']');
+            format!("static STATS_{}: Stats = {};\n", f.const_name, &stats)
+        });
+    }
+
+    fn print_each<F>(&mut self, expr: F)
+        where F: Fn(&Feature) -> String
+    {
+        for (_, feature) in &self.data.data {
+            write!(self.w, "{}", expr(&feature)).unwrap();
+        }
+    }
+
+    fn print_match<F>(&mut self, expr: F)
+        where F: Fn(&Feature) -> String
+    {
+        self.p(b"\n  match self {\n");
+        self.print_each(|f| {
+            format!("    Feature::{var} => {expr},\n",
+                    var = f.var_name,
+                    expr = expr(&f))
+        });
+        self.p(b"  }\n");
+    }
+
+    fn p(&mut self, b: &[u8]) {
+        self.w.write_all(b).unwrap();
+    }
+
+    fn build_map<T>(map: phf_codegen::Map<T>) -> String
+        where T: std::cmp::Eq + std::hash::Hash + std::fmt::Debug + phf::PhfHash
+    {
+        let mut buf: Vec<u8> = Vec::new();
+        map.build(&mut buf).unwrap();
+        String::from_utf8(buf).unwrap()
+    }
 }
+
 
 #[derive(Debug, Deserialize)]
 struct Data {
@@ -97,14 +178,44 @@ struct Data {
     data: HashMap<String, Feature>,
 }
 
+impl Data {
+    fn get(client: &Client, head: &str) -> Self {
+        let u = format!("https://raw.githubusercontent.com/Fyrd/caniuse/{}/data.json",
+                        head);
+        get_json::<Data>(&client, &format!("data_{}", head), &u)
+    }
+
+
+    fn patch(mut self) -> Self {
+        use inflect::CaseFormat;
+
+        for (id, ref mut feature) in &mut self.data {
+            feature.id = id.clone();
+            feature.var_name = inflect::UpperCamel::convert_to(id);
+            feature.const_name = feature.var_name.to_uppercase();
+        }
+
+        self
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct Feature {
+    #[serde(skip_deserializing)]
+    id: String,
+    /// enum variant name
+    #[serde(skip_deserializing)]
+    var_name: String,
+    /// UPPER_CAMEL
+    #[serde(skip_deserializing)]
+    const_name: String,
+
     title: String,
     description: String,
     spec: String,
     parent: String,
     status: Status,
-    stats: HashMap<Browser, HashMap<String, String>>,
+    stats: HashMap<Browser, HashMap<String, Support>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,13 +234,6 @@ struct Agent {
 struct NpmResponse {
     #[serde(rename="gitHead")]
     git_head: String,
-}
-
-fn get_data(client: &Client, head: &str) -> Data {
-    let u = format!("https://raw.githubusercontent.com/Fyrd/caniuse/{}/data.json",
-                    head);
-
-    get_json::<Data>(&client, &format!("data_{}", head), &u)
 }
 
 fn get_git_head(client: &Client) -> String {
@@ -162,18 +266,19 @@ fn get_json<T: Deserialize>(client: &Client, cache_file_name: &str, url: &str) -
     let mut body = String::new();
     res.read_to_string(&mut body).unwrap();
 
-    let decoded: T = serde_json::from_str(&body).expect("failed to deserialize response");
+    let dec = match serde_json::from_str::<T>(&body) {
+        Ok(dec) => dec,
+        Err(e) => {
+            let mut f = File::create(dest_path).expect("failed to create cache");
+            f.write_all(&body.into_bytes()).expect("failed to write cache");
+            panic!(format!("failed to deserialize response: {}, file: {}",
+                           e,
+                           cache_file_name));
+        }
+    };
 
     let mut f = File::create(dest_path).expect("failed to create cache");
     f.write_all(&body.into_bytes()).expect("failed to write cache");
 
-    decoded
-}
-
-fn build_phf_map<T>(m: phf_codegen::Map<T>) -> String
-    where T: std::cmp::Eq + std::hash::Hash + std::fmt::Debug + phf::PhfHash
-{
-    let mut buf: Vec<u8> = Vec::new();
-    m.build(&mut buf).unwrap();
-    String::from_utf8(buf).unwrap()
+    dec
 }

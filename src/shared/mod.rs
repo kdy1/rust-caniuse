@@ -1,8 +1,10 @@
 use phf;
-use std::fmt::{self, Debug, Display, Formatter};
-use std::hash::Hasher;
+use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 use serde::{self, Deserialize, Deserializer};
+
+mod support;
+pub use self::support::*;
 
 ///
 /// multiple idents are required because concat_idents!() does not work.
@@ -13,8 +15,8 @@ macro_rules! caniuse_enum {
             $exp:expr => $v:ident,
         )+
     }) => {
-        #[repr(u8)]
-        #[derive(Clone, Copy, PartialEq, Eq, Hash, )]
+        #[repr(C, u8)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub enum $name {
             $(
                 #[doc = "\""]
@@ -32,18 +34,6 @@ macro_rules! caniuse_enum {
                 }
             }
         }
-
-
-        /// This is required for phf_codegen.
-        /// (is wrapper type better?)
-		impl Debug for $name {
-			#[inline]
-			fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-				 match *self {
-                    $($name::$v => write!(f, "{}::{}", stringify!($name), stringify!($v)) ,)+
-                }
-			}
-		}
 
         impl $name {
         pub fn orig(&self) -> &'static str {
@@ -93,14 +83,6 @@ macro_rules! caniuse_enum {
                 }
             }
         }
-
-		impl phf::PhfHash for $name {
-
-			#[inline]
-			fn phf_hash<H: Hasher>(&self, state: &mut H) {
-				state.write_u8(*self as u8);
-			}
-        }
     }
 }
 
@@ -141,23 +123,3 @@ caniuse_enum!(Prefix, PREFIXES, PrefixVisitor, {
     "webkit" => Webkit,
     "o" => Opera,
 });
-
-
-///
-/// https://github.com/Fyrd/caniuse/blob/master/CONTRIBUTING.md#supported-changes
-pub enum Support {
-    /// y - (Y)es, supported by default
-    Supported,
-    /// a - (A)lmost supported (aka Partial support)
-    Partial,
-    /// n - (N)o support, or disabled by default
-    No,
-    /// p - No support, but has (P)olyfill
-    Polyfill,
-    /// u - Support (u)nknown
-    Unknown,
-    /// x - Requires prefi(x) to work
-    PrefixRequired,
-    /// d - (D)isabled by default (need to enable flag or something)
-    Disabled,
-}

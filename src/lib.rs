@@ -1,7 +1,9 @@
 #![feature(plugin,custom_derive)]
 #![plugin(phf_macros,serde_macros)]
 
-//! caniuse-rs
+//! caniuse-rs contains static database from
+//! [caniuse-db by Fyrd](https://github.com/Fyrd/caniuse).
+//!
 //!
 
 extern crate phf;
@@ -10,37 +12,42 @@ mod shared;
 pub use shared::*;
 
 
-#[derive(Debug)]
-pub struct Feature {
-    /// ID of the feature.
-    pub id: &'static str,
-    pub title: &'static str,
-    /// ID of the parent feature, or empty string.
-    pub parent_id: &'static str,
-    /// Specification status
-    pub status: Status,
-    pub stats: phf::Map<Browser, phf::Map<&'static str, &'static str>>,
-}
+/// version:support map
+pub type Stat = phf::Map<&'static str, Support>;
+/// browser:stat map
+pub type Stats = [(Browser, Stat); 15];
 
 impl Feature {
-    pub fn parent(&'static self) -> Option<&'static Feature> {
-        if self.parent_id == "" {
+    #[inline]
+    pub fn parent(self) -> Option<Self> {
+        let parent_id: &'static str = self.parent_id();
+        if parent_id == "" {
             return None;
         }
 
-        match FEATURES.get(self.parent_id) {
-            Some(o) => Some(o),
+        match FEATURES.get(parent_id) {
+            Some(o) => Some(*o),
             None => unreachable!(),
         }
     }
+
+    #[inline]
+    pub fn stat(self, br: Browser) -> Option<&'static Stat> {
+        for &(browser, ref s) in self.stats().iter() {
+            if br == browser {
+                return Some(s);
+            }
+        }
+        None
+    }
 }
 
-impl std::str::FromStr for &'static Feature {
+impl std::str::FromStr for Feature {
     type Err = ();
     #[inline]
-    fn from_str(s: &str) -> Result<&'static Feature, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match FEATURES.get(s) {
-            Some(o) => Ok(o),
+            Some(o) => Ok(*o),
             None => Err(()),
         }
     }

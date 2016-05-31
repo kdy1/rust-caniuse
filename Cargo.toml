@@ -11,17 +11,16 @@ build = "build.rs"
 
 [dependencies]
 phf = "^0.7"
-phf_macros = "^0.7"
+phf_macros = { version = "^0.7", features = ["stats"] }
 serde = "^0.7"
 serde_macros = "^0.7"
 
-
 [build-dependencies]
-aster = "^0.16"
+hyper = "^0.9"
 phf = "^0.7"
 phf_codegen = "^0.7"
 phf_macros = "^0.7"
 serde = "^0.7"
 serde_json = "^0.7"
 serde_macros = "^0.7"
-hyper = "^0.9"
+inflect = "^0.1"
