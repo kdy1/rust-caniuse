@@ -1,26 +1,24 @@
 [package]
 name = "caniuse"
 description = "caniuse-db for rust."
-version = "1.0.30000471"
-authors = ["kdy1997 <kdy1997.dev@gmail.com>"]
+version = "1.0.30000909"
+authors = ["강동윤 <kdy1@outlook.kr"]
 license = "MIT/Apache-2.0"
-documentation = "https://kdy1997.github.io/rustdoc/caniuse/caniuse"
-homepage = "https://github.com/kdy1997/rust-caniuse"
-repository = "https://github.com/kdy1997/rust-caniuse"
+documentation = "http://docs.rs/caniuse/"
+homepage = "https://github.com/kdy1/rust-caniuse"
+repository = "https://github.com/kdy1/rust-caniuse"
 build = "build.rs"
 
 [dependencies]
-phf = "^0.7"
-phf_macros = { version = "^0.7", features = ["stats"] }
-serde = "^0.7"
-serde_macros = "^0.7"
+phf = "0.7"
+serde = "1"
+serde_derive = "1"
 
 [build-dependencies]
-hyper = "^0.9"
-phf = "^0.7"
-phf_codegen = "^0.7"
-phf_macros = "^0.7"
-serde = "^0.7"
-serde_json = "^0.7"
-serde_macros = "^0.7"
+reqwest = "0.9"
+phf = "0.7"
+phf_codegen = "0.7"
+serde = "1"
+serde_json = "1"
+serde_derive = "1"
 inflect = "^0.1"

@@ -1,10 +1,10 @@
-use std::str::FromStr;
-use std::ascii::AsciiExt;
 use serde::{self, Deserialize, Deserializer};
+use std::fmt;
+use std::str::FromStr;
 
 ///
 /// https://github.com/Fyrd/caniuse/blob/master/CONTRIBUTING.md#supported-changes
-#[repr(C, u8)]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Support {
     /// y - (Y)es, supported by default
@@ -51,7 +51,6 @@ impl FromStr for Support {
                 _ => return Err(SupportParseError::Invalid(i)),
             };
 
-
             if ret == None {
                 ret = Some(v);
             } else if ret == Some(Supported) && v == PrefixRequired {
@@ -78,28 +77,30 @@ pub enum SupportParseError {
     Invalid(usize),
 }
 
-impl Deserialize for Support {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
-        where D: Deserializer
+impl<'de> Deserialize<'de> for Support {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
     {
-        deserializer.deserialize(SupportVisitor)
+        deserializer.deserialize_str(SupportVisitor)
     }
 }
 
 struct SupportVisitor;
 
-impl serde::de::Visitor for SupportVisitor {
+impl<'de> serde::de::Visitor<'de> for SupportVisitor {
     type Value = Support;
 
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "support string")
+    }
+
     #[inline]
-    fn visit_str<E>(&mut self, s: &str) -> Result<Self::Value, E>
-        where E: serde::de::Error
+    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
     {
-        let v = Support::from_str(s);
-        match v {
-            Ok(v) => Ok(v),
-            Err(e) => Err(E::custom(format!("invalid value for Support: '{}'", s))),
-        }
+        Support::from_str(s).map_err(|_| E::custom(format!("invalid value for Support: '{}'", s)))
     }
 }
 

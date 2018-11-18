@@ -1,10 +1,8 @@
-use phf;
+pub use self::support::*;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
-use serde::{self, Deserialize, Deserializer};
 
 mod support;
-pub use self::support::*;
 
 ///
 /// multiple idents are required because concat_idents!() does not work.
@@ -15,13 +13,14 @@ macro_rules! caniuse_enum {
             $exp:expr => $v:ident,
         )+
     }) => {
-        #[repr(C, u8)]
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[repr(u8)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub enum $name {
             $(
                 #[doc = "\""]
                 #[doc = $exp]
                 #[doc = "\""]
+                #[serde(rename = $exp)]
                 $v,
             )+
         }
@@ -36,57 +35,26 @@ macro_rules! caniuse_enum {
         }
 
         impl $name {
-        pub fn orig(&self) -> &'static str {
-			match *self {
+           pub fn as_str(&self) -> &'static str {
+	    		match *self {
                     $($name::$v => $exp ,)+
                 }
+            }
         }
-        }
-
-        pub static $map: phf::Map<&'static str, $name> = phf_map! {
-            $($exp => $name::$v,)+
-        };
 
         impl FromStr for $name {
             type Err = ();
             #[inline]
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match $map.get(s) {
-                    Some(o) => { Ok(*o) },
-                    None => { Err(()) }
-                }
-            }
-        }
 
-        impl Deserialize for $name {
-            fn deserialize<D: Deserializer>(d: &mut D)
-             -> Result<Self, D::Error> {
-                d.deserialize($visitor)
-            }
-        }
-
-        struct $visitor;
-
-        impl serde::de::Visitor for $visitor {
-            type Value = $name;
-
-            #[inline]
-            fn visit_str<E>(&mut self, v: &str) -> Result<Self::Value, E>
-             where E: serde::de::Error {
-                match $map.get(v) {
-                    Some(o) => { Ok(*o) },
-                    None => {
-                        Err(E::invalid_value(
-                            &format!("Unknown value('{}') for {}", v, stringify!($name))
-                        ))
-                    },
+                match s {
+                    $($exp => Ok($name::$v),)*
+                    _ => Err(()),
                 }
             }
         }
     }
 }
-
-
 
 caniuse_enum!(Browser, BROWSERS, BrowserVisitor, {
     "ie" => IE,

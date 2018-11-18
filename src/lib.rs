@@ -1,6 +1,3 @@
-#![feature(plugin,custom_derive)]
-#![plugin(phf_macros,serde_macros)]
-
 //! caniuse-rs contains static database from
 //! [caniuse-db by Fyrd](https://github.com/Fyrd/caniuse).
 //!
@@ -8,9 +5,10 @@
 
 extern crate phf;
 extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 mod shared;
 pub use shared::*;
-
 
 /// version:support map
 pub type Stat = phf::Map<&'static str, Support>;

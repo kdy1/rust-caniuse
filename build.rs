@@ -1,28 +1,24 @@
-#![feature(plugin, custom_derive)]
-#![plugin(phf_macros, serde_macros)]
-
 extern crate inflect;
-extern crate hyper;
 extern crate phf;
 extern crate phf_codegen;
+extern crate reqwest;
 extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
 
+use reqwest::Client;
+use serde::de::DeserializeOwned;
+use shared::*;
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use hyper::Client;
-use hyper::header::Connection;
-use serde::Deserialize;
-use shared::*;
-
-
+#[allow(dead_code)]
 #[path = "src/shared/mod.rs"]
 mod shared;
-
 
 fn main() {
     let client = Client::new();
@@ -44,23 +40,25 @@ struct DataPrinter<W: Write> {
 }
 
 impl<W> DataPrinter<W>
-    where W: Write
+where
+    W: Write,
 {
     fn print(&mut self) {
         // start: pub enum Fature
         self.p(b"#[derive(Debug,Copy,Clone)]
     pub enum Feature {\n");
         self.print_each(|f| {
-            format!("/// http://caniuse.com/#feat={id}
+            format!(
+                "/// http://caniuse.com/#feat={id}
 /// {desc}
 {var},\n",
-                    id = f.id,
-                    var = f.var_name,
-                    desc = &f.description)
+                id = f.id,
+                var = f.var_name,
+                desc = &f.description
+            )
         });
         self.p(b"}\n");
         // end: pub enum Feature
-
 
         self.print_feature_impl();
 
@@ -123,11 +121,13 @@ pub fn stats(self) -> &'static Stats {");
                 for (ver, support) in stat {
                     stat_map.entry(&ver, &format!("Support::{:?}", support));
                 }
-                write!(stats,
-                       "(Browser::{}, {}),",
-                       browser,
-                       &Self::build_map(stat_map))
-                    .unwrap();
+                write!(
+                    stats,
+                    "(Browser::{}, {}),",
+                    browser,
+                    &Self::build_map(stat_map)
+                )
+                .unwrap();
             }
             stats.push(']');
             format!("static STATS_{}: Stats = {};\n", f.const_name, &stats)
@@ -135,7 +135,8 @@ pub fn stats(self) -> &'static Stats {");
     }
 
     fn print_each<F>(&mut self, expr: F)
-        where F: Fn(&Feature) -> String
+    where
+        F: Fn(&Feature) -> String,
     {
         for (_, feature) in &self.data.data {
             write!(self.w, "{}", expr(&feature)).unwrap();
@@ -143,13 +144,16 @@ pub fn stats(self) -> &'static Stats {");
     }
 
     fn print_match<F>(&mut self, expr: F)
-        where F: Fn(&Feature) -> String
+    where
+        F: Fn(&Feature) -> String,
     {
         self.p(b"\n  match self {\n");
         self.print_each(|f| {
-            format!("    Feature::{var} => {expr},\n",
-                    var = f.var_name,
-                    expr = expr(&f))
+            format!(
+                "    Feature::{var} => {expr},\n",
+                var = f.var_name,
+                expr = expr(&f)
+            )
         });
         self.p(b"  }\n");
     }
@@ -159,14 +163,14 @@ pub fn stats(self) -> &'static Stats {");
     }
 
     fn build_map<T>(map: phf_codegen::Map<T>) -> String
-        where T: std::cmp::Eq + std::hash::Hash + std::fmt::Debug + phf::PhfHash
+    where
+        T: std::cmp::Eq + std::hash::Hash + std::fmt::Debug + phf::PhfHash,
     {
         let mut buf: Vec<u8> = Vec::new();
         map.build(&mut buf).unwrap();
         String::from_utf8(buf).unwrap()
     }
 }
-
 
 #[derive(Debug, Deserialize)]
 struct Data {
@@ -180,11 +184,12 @@ struct Data {
 
 impl Data {
     fn get(client: &Client, head: &str) -> Self {
-        let u = format!("https://raw.githubusercontent.com/Fyrd/caniuse/{}/data.json",
-                        head);
+        let u = format!(
+            "https://raw.githubusercontent.com/Fyrd/caniuse/{}/data.json",
+            head
+        );
         get_json::<Data>(&client, &format!("data_{}", head), &u)
     }
-
 
     fn patch(mut self) -> Self {
         use inflect::CaseFormat;
@@ -224,7 +229,7 @@ struct Agent {
     browser: String,
     abbr: String,
     prefix: Prefix,
-    #[serde(rename="type")]
+    #[serde(rename = "type")]
     typ: String,
     versions: Vec<Option<String>>,
     prefix_exceptions: Option<HashMap<String, Prefix>>,
@@ -232,7 +237,7 @@ struct Agent {
 
 #[derive(Debug, Deserialize)]
 struct NpmResponse {
-    #[serde(rename="gitHead")]
+    #[serde(rename = "gitHead")]
     git_head: String,
 }
 
@@ -240,7 +245,7 @@ fn get_git_head(client: &Client) -> String {
     let ver = env::var("CARGO_PKG_VERSION").unwrap();
     println!("Version: {}", ver);
 
-    let u = format!("https://registry.npmjs.org/caniuse-db?version={}", &ver);
+    let u = format!("https://registry.npmjs.org/caniuse-db/{}", ver);
     let r = get_json::<NpmResponse>(&client, &format!("git_head_{}", ver), &u);
     println!("Head: {}", r.git_head);
     r.git_head
@@ -248,19 +253,16 @@ fn get_git_head(client: &Client) -> String {
 
 // cache_file_name should include hash.
 // get_json just read cache if it exists.
-fn get_json<T: Deserialize>(client: &Client, cache_file_name: &str, url: &str) -> T {
+fn get_json<T: DeserializeOwned>(client: &Client, cache_file_name: &str, url: &str) -> T {
     let out_dir = env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join(cache_file_name);
 
     // use cache if exists
     if let Ok(f) = File::open(&dest_path) {
-        return serde_json::from_reader::<_, T>(f).expect("failed to deserialize cache");
+        return serde_json::from_reader(f).expect("failed to deserialize cache");
     }
     // Creating an outgoing request.
-    let mut res = client.get(url)
-                        .header(Connection::close())
-                        .send()
-                        .unwrap();
+    let mut res = client.get(url).send().unwrap();
 
     // Read the Response.
     let mut body = String::new();
@@ -270,15 +272,18 @@ fn get_json<T: Deserialize>(client: &Client, cache_file_name: &str, url: &str) -
         Ok(dec) => dec,
         Err(e) => {
             let mut f = File::create(dest_path).expect("failed to create cache");
-            f.write_all(&body.into_bytes()).expect("failed to write cache");
-            panic!(format!("failed to deserialize response: {}, file: {}",
-                           e,
-                           cache_file_name));
+            f.write_all(&body.into_bytes())
+                .expect("failed to write cache");
+            panic!(format!(
+                "failed to deserialize response: {}, file: {}",
+                e, cache_file_name
+            ));
         }
     };
 
     let mut f = File::create(dest_path).expect("failed to create cache");
-    f.write_all(&body.into_bytes()).expect("failed to write cache");
+    f.write_all(&body.into_bytes())
+        .expect("failed to write cache");
 
     dec
 }
