@@ -50,11 +50,9 @@ where
         self.print_each(|f| {
             format!(
                 "/// http://caniuse.com/#feat={id}
-/// {desc}
 {var},\n",
                 id = f.id,
                 var = f.var_name,
-                desc = &f.description
             )
         });
         self.p(b"}\n");
@@ -98,7 +96,7 @@ pub fn status(self) -> Status {");
         // start: fn title()
         self.p(b"\n
 pub fn title(self) -> &'static str {");
-        self.print_match(|f| format!("\"{}\"", f.title));
+        self.print_match(|f| format!("r###\"{}\"###", f.title));
         self.p(b"}\n");
 
         // start: fn stats()

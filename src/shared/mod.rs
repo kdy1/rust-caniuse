@@ -71,7 +71,10 @@ caniuse_enum!(Browser, BROWSERS, BrowserVisitor, {
     "and_chr" => AndroidChrome,
     "and_ff" => AndroidFirefox,
     "ie_mob" => IEMobile,
+    "baidu" => BaiduBrowser,
     "and_uc" => AndroidUCBrowser,
+    "and_qq" => AndroidQQBrowser,
+    "samsung" => SamsungBrowser,
 });
 
 caniuse_enum!(Status, STATUSES, StatusVisitor, {

@@ -13,7 +13,7 @@ pub use shared::*;
 /// version:support map
 pub type Stat = phf::Map<&'static str, Support>;
 /// browser:stat map
-pub type Stats = [(Browser, Stat); 15];
+pub type Stats = [(Browser, Stat); 18];
 
 impl Feature {
     #[inline]
