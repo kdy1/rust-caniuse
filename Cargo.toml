@@ -1,5 +1,5 @@
 [package]
-name = "caniuse"
+name = "caniuse-db"
 description = "caniuse-db for rust."
 version = "1.0.30000909"
 authors = ["강동윤 <kdy1@outlook.kr"]
