@@ -8,8 +8,3 @@ cache: cargo
 script:
  - cargo test --verbose
 
-after_success: |
-    [ $TRAVIS_PULL_REQUEST = false ] &&
-    [ $TRAVIS_RUST_VERSION = nightly ] &&
-    cargo doc --no-deps &&
-    ./.travis/docs.sh

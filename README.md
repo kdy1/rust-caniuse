@@ -1,5 +1,5 @@
 # rust-caniuse
-[![Build Status](https://travis-ci.org/kdy1997/rust-caniuse.png?branch=master)](https://travis-ci.org/kdy1997/rust-caniuse) [![Latest Version](https://img.shields.io/crates/v/caniuse.svg)](https://crates.io/crates/caniuse)
+[![Build Status](https://travis-ci.org/kdy1/rust-caniuse.png?branch=master)](https://travis-ci.org/kdy1/rust-caniuse) [![Latest Version](https://img.shields.io/crates/v/caniuse.svg)](https://crates.io/crates/caniuse)
 
 [caniuse-db](https://github.com/Fyrd/caniuse) for rust.
 caniuse-db is licensed CC BY 4.0 license (http://creativecommons.org/licenses/by/4.0/).
